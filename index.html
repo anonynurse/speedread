@@ -13,11 +13,11 @@
       --border:#d1d5db;
       --shadow: 0 8px 24px rgba(0,0,0,.08);
 
-      --pivot:#ef4444;      /* middle letter */
+      --pivot:#ef4444;
       --btn:#16a34a;
       --btnText:#ffffff;
 
-      --selection:#fde68a;  /* textarea highlight (browser may vary) */
+      --selection:#fde68a;
     }
 
     body.dark{
@@ -118,7 +118,7 @@
 
     .wordFrame{
       position:relative;
-      height: 150px;               /* static frame */
+      height: 150px;
       border: 2px solid var(--border);
       background: var(--panel);
       border-radius: 16px;
@@ -128,12 +128,10 @@
       justify-content:center;
       overflow:hidden;
 
-      /* Crosshair tuning */
-      --crossInset: 14px;   /* distance from frame edges */
-      --crossGap: 54px;     /* half-gap around the word (bigger = less overlap) */
+      --crossInset: 14px;
+      --crossGap: 54px;
     }
 
-    /* Vertical center line WITH a middle gap */
     .wordFrame::before{
       content:"";
       position:absolute;
@@ -154,7 +152,6 @@
       );
     }
 
-    /* Horizontal center line WITH a middle gap */
     .wordFrame::after{
       content:"";
       position:absolute;
@@ -189,7 +186,7 @@
       user-select:none;
 
       position: relative;
-      z-index: 1; /* ensures word is above the guide lines */
+      z-index: 1;
     }
 
     .w-left, .w-right{ color: var(--text); }
@@ -267,6 +264,9 @@
       let running = false;
       let timer = null;
 
+      // multiplier for the *next* delay (lets us do “double pause after a period”)
+      let nextDelayMult = 1;
+
       const escHtml = (s) => s
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
@@ -310,10 +310,7 @@
       function indexFromPos(pos) {
         if (!words.length) return 0;
 
-        // If cursor is inside a word, use that word.
-        // If cursor is between words, start at the next word.
         let lo = 0, hi = words.length - 1, ans = words.length - 1;
-
         while (lo <= hi) {
           const mid = (lo + hi) >> 1;
           const w = words[mid];
@@ -338,8 +335,14 @@
         const left = escHtml(s.slice(0, pivot));
         const mid = escHtml(s.slice(pivot, pivot + 1));
         const right = escHtml(s.slice(pivot + 1));
-
         return `<span class="w-left">${left}</span><span class="w-pivot">${mid}</span><span class="w-right">${right}</span>`;
+      }
+
+      // Double pause after a period (handles quotes/brackets like '." ) .” .)’ etc)
+      function pauseMultiplierFor(wordText) {
+        const t = String(wordText || '');
+        const endsWithPeriod = /\.[)"'\]\}”’]*$/.test(t);
+        return endsWithPeriod ? 2 : 1;
       }
 
       function showWord(idx) {
@@ -353,6 +356,9 @@
         textInput.setSelectionRange(w.start, w.end);
 
         setStatus(`${idx + 1} / ${words.length}`);
+
+        // set the multiplier for the *next* interval
+        nextDelayMult = pauseMultiplierFor(w.text);
       }
 
       function stopReading(finalMsg) {
@@ -366,7 +372,9 @@
       function scheduleNext() {
         if (!running) return;
 
-        const delay = 60000 / getWpm();
+        const baseDelay = 60000 / getWpm();
+        const delay = baseDelay * (nextDelayMult || 1);
+
         timer = setTimeout(() => {
           if (!running) return;
 
@@ -396,53 +404,4 @@
         nextIdx = indexFromPos(pos);
 
         running = true;
-        playBtn.textContent = 'Pause';
-        playBtn.classList.add('pause');
-
-        // Show immediately, then continue on timer
-        showWord(nextIdx);
-        nextIdx += 1;
-        scheduleNext();
-      }
-
-      playBtn.addEventListener('click', () => {
-        if (running) stopReading();
-        else startFromCursor();
-      });
-
-      // WPM is live: reschedule next tick for responsiveness
-      wpmInput.addEventListener('input', () => {
-        if (!running) return;
-        if (timer) { clearTimeout(timer); timer = null; }
-        scheduleNext();
-      });
-
-      // Clean up WPM on blur
-      wpmInput.addEventListener('blur', () => {
-        wpmInput.value = String(getWpm());
-      });
-
-      // If you edit the text while running, pause (keeps indexes sane)
-      textInput.addEventListener('input', () => {
-        if (running) stopReading();
-      });
-
-      // Keyboard shortcuts
-      document.addEventListener('keydown', (e) => {
-        const active = document.activeElement;
-        const inWpm = active === wpmInput;
-
-        if (e.key === ' ' && !inWpm) {
-          e.preventDefault();
-          if (running) stopReading();
-          else startFromCursor();
-        }
-
-        if (e.key === 'Escape') {
-          if (running) stopReading();
-        }
-      });
-    })();
-  </script>
-</body>
-</html>
+        p
