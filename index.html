@@ -127,34 +127,53 @@
       align-items:center;
       justify-content:center;
       overflow:hidden;
+
+      /* Crosshair tuning */
+      --crossInset: 14px;   /* distance from frame edges */
+      --crossGap: 54px;     /* half-gap around the word (bigger = less overlap) */
     }
 
-    /* ORP / center guides (top+bottom segments so the word stays readable) */
-    .guide{
+    /* Vertical center line WITH a middle gap */
+    .wordFrame::before{
+      content:"";
       position:absolute;
       left:50%;
-      transform: translateX(-50%);
+      top: var(--crossInset);
+      bottom: var(--crossInset);
       width: 2px;
-      background: var(--border);
-      opacity: .9;
-    }
-    .guide.top{ top: 10px; height: 36px; }
-    .guide.bottom{ bottom: 10px; height: 36px; }
-
-    /* subtle extra tick marks to “frame” the center */
-    .tick{
-      position:absolute;
-      left:50%;
       transform: translateX(-50%);
-      width: 18px;
-      height: 2px;
-      background: var(--border);
-      opacity: .9;
+      opacity: .85;
+      background: linear-gradient(
+        to bottom,
+        var(--border) 0,
+        var(--border) calc(50% - var(--crossGap)),
+        transparent calc(50% - var(--crossGap)),
+        transparent calc(50% + var(--crossGap)),
+        var(--border) calc(50% + var(--crossGap)),
+        var(--border) 100%
+      );
     }
-    .tick.left{ margin-left: -26px; }
-    .tick.right{ margin-left: 26px; }
-    .tick.top{ top: 44px; }
-    .tick.bottom{ bottom: 44px; }
+
+    /* Horizontal center line WITH a middle gap */
+    .wordFrame::after{
+      content:"";
+      position:absolute;
+      left: var(--crossInset);
+      right: var(--crossInset);
+      top:50%;
+      height: 2px;
+      transform: translateY(-50%);
+      opacity: .55;
+      background: linear-gradient(
+        to right,
+        var(--border) 0,
+        var(--border) calc(50% - var(--crossGap)),
+        transparent calc(50% - var(--crossGap)),
+        transparent calc(50% + var(--crossGap)),
+        var(--border) calc(50% + var(--crossGap)),
+        var(--border) 100%
+      );
+    }
 
     .wordBox{
       padding: 0 16px;
@@ -168,6 +187,9 @@
       overflow: hidden;
       text-overflow: ellipsis;
       user-select:none;
+
+      position: relative;
+      z-index: 1; /* ensures word is above the guide lines */
     }
 
     .w-left, .w-right{ color: var(--text); }
@@ -192,7 +214,6 @@
       border-color: rgba(34,197,94,.55);
     }
 
-    /* Selection highlight (browser-controlled, but this nudges it) */
     textarea::selection{ background: var(--selection); }
 
     .hint{
@@ -223,13 +244,6 @@
     </header>
 
     <section class="wordFrame" aria-live="polite">
-      <div class="guide top"></div>
-      <div class="guide bottom"></div>
-      <div class="tick top left"></div>
-      <div class="tick top right"></div>
-      <div class="tick bottom left"></div>
-      <div class="tick bottom right"></div>
-
       <div id="wordBox" class="wordBox">Paste text below, then press Read.</div>
     </section>
 
@@ -335,7 +349,6 @@
         wordBox.innerHTML = renderWord(w.text);
 
         // Highlight current word in the textbox using selection
-        // (this is the simplest reliable "highlight" inside a real textarea)
         textInput.focus();
         textInput.setSelectionRange(w.start, w.end);
 
@@ -397,14 +410,14 @@
         else startFromCursor();
       });
 
-      // WPM is live: if running, next tick uses the new value (we reschedule for responsiveness)
+      // WPM is live: reschedule next tick for responsiveness
       wpmInput.addEventListener('input', () => {
         if (!running) return;
         if (timer) { clearTimeout(timer); timer = null; }
         scheduleNext();
       });
 
-      // Clean up WPM on blur (so you can type freely while focused)
+      // Clean up WPM on blur
       wpmInput.addEventListener('blur', () => {
         wpmInput.value = String(getWpm());
       });
@@ -433,4 +446,3 @@
   </script>
 </body>
 </html>
-
